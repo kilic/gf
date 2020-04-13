@@ -336,30 +336,6 @@ func (basis Basis64) iRadixConversion(p GF64Poly) error {
 	return nil
 }
 
-// sIRadixConversion given polynomial in Taylor expanded form
-// calculates coefficients. It is basically calculating Taylor expantion at (x^2 + x)
-// in reverse order.
-func (basis Basis64) sIRadixConversion(p GF64Poly) error {
-	if uint(p.Length()) != basis.n {
-		return fmt.Errorf("radix convertions is not applicable, resize polynomial to %d coefficients", basis.n)
-	}
-	for r := basis.m - 2; r != 0xffffffffffffffff; r-- {
-		for i := basis.m - r - 2; i != 0xffffffffffffffff; i-- {
-			d := basis.n >> i
-			d2, d4 := d>>1, d>>2
-			var off uint
-			for j := uint(0); j < 1<<i; j++ {
-				for k := off; k < off+d4; k++ {
-					p[d4+k] ^= p[d2+k]
-					p[d2+k] ^= p[d2+d4+k]
-				}
-				off += d
-			}
-		}
-	}
-	return nil
-}
-
 // Mul multiplicatates two polynomial and assigns the result to first operand.
 func (basis Basis64) Mul(p0, p1 GF64Poly) error {
 	if (uint(p0.Length()) != basis.n) || (uint(p0.Length()) != basis.n) {
