@@ -2,6 +2,7 @@ package gf
 
 import (
 	"fmt"
+	"sync"
 )
 
 // GF64Poly is to represent a polynomial.
@@ -238,7 +239,7 @@ func (basis Basis64) FFT(p GF64Poly) error {
 	// f(β_1) = a_0 + a_1 * β_1 = a_0 + a_1
 	halfL := p.Length() / 2
 	for i := 0; i < halfL; i++ {
-		p[i+halfL] = p[i].Add(p[i+halfL])
+		p[i+halfL] ^= p[i]
 	}
 
 	// Merging linear evaluations with base combinations
@@ -250,11 +251,76 @@ func (basis Basis64) FFT(p GF64Poly) error {
 		for j = 0; j < 1<<i; j++ {
 			for k = b; k < b+d; k++ {
 				k2 := k + d
-				p[k] = p[k].Add(G[j].Mul(p[k2]))
-				p[k2] = p[k2].Add(p[k])
+				p[k] ^= mul64(G[j], p[k2])
+				p[k2] ^= p[k]
 			}
 			b += (d << 1)
 		}
+	}
+	return nil
+}
+
+func (basis *Basis64) lFFT(p GF64Poly) error {
+	if uint(p.Length()) != basis.n {
+		return fmt.Errorf("fft is not applicable, resize polynomial to %d coefficients", basis.n)
+	}
+
+	G := basis.subCombinations
+
+	halfL := p.Length() / 2
+	for i := 0; i < halfL; i++ {
+		p[i+halfL] = p[i].Add(p[i+halfL])
+	}
+
+	var i, j, k, d uint
+	for i = 1; i < basis.m; i++ {
+		d = 1 << (basis.m - 1 - i)
+		var b uint
+		for j = 0; j < 1<<i; j++ {
+			for k = b; k < b+d; k++ {
+				k2 := k + d
+				p[k] ^= mul64(G[j], p[k2])
+				p[k2] ^= p[k]
+			}
+			b += (d << 1)
+		}
+	}
+	return nil
+}
+
+func (basis Basis64) clFFT(p GF64Poly) error {
+	if uint(p.Length()) != basis.n {
+		return fmt.Errorf("fft is not applicable, resize polynomial to %d coefficients", basis.n)
+	}
+
+	G := basis.subCombinations
+
+	runHalfJ := func(p GF64Poly, j0, j1, d, b uint, wg *sync.WaitGroup) {
+		for j := j0; j < j1; j++ {
+			for k := b; k < b+d; k++ {
+				k2 := k + d
+				p[k] ^= mul64(G[j], p[k2])
+				p[k2] ^= p[k]
+			}
+			b += (d << 1)
+		}
+		wg.Done()
+	}
+
+	halfL := p.Length() / 2
+	for i := 0; i < halfL; i++ {
+		p[i+halfL] = p[i].Add(p[i+halfL])
+	}
+
+	var wg sync.WaitGroup
+	for i := uint(1); i < basis.m; i++ {
+		d := uint(1) << (basis.m - 1 - i)
+		j := uint(1) << i
+		j2 := j / 2
+		wg.Add(2)
+		go runHalfJ(p, 0, j2, d, 0, &wg)
+		go runHalfJ(p, j2, j, d, 1<<(basis.m-1), &wg)
+		wg.Wait()
 	}
 	return nil
 }
@@ -273,17 +339,42 @@ func (basis Basis64) IFFT(p GF64Poly) error {
 		for j = 0; j < 1<<i; j++ {
 			for k = b; k < b+d; k++ {
 				k2 := k + d
-				p[k2] = p[k2].Add(p[k])
-				p[k] = p[k].Add(G[j].Mul(p[k2]))
+				p[k2] ^= p[k]
+				p[k] ^= mul64(G[j], p[k2])
 			}
 			b += (d << 1)
 		}
 	}
 	halfL := p.Length() / 2
 	for i := 0; i < halfL; i++ {
-		p[i+halfL] = p[i].Add(p[i+halfL])
+		p[i+halfL] ^= p[i]
 	}
 	_ = basis.iRadixConversion(p)
+	return nil
+}
+
+func (basis Basis64) lIFFT(p GF64Poly) error {
+	if uint(p.Length()) != basis.n {
+		return fmt.Errorf("ifft is not applicable, resize polynomial to %d coefficients", basis.n)
+	}
+	G := basis.subCombinations
+	var i, j, k, d uint
+	for i = basis.m - 1; i > 0; i-- {
+		d = 1 << (basis.m - 1 - i)
+		var b uint
+		for j = 0; j < 1<<i; j++ {
+			for k = b; k < b+d; k++ {
+				k2 := k + d
+				p[k2] ^= p[k]
+				p[k] ^= mul64(G[j], p[k2])
+			}
+			b += (d << 1)
+		}
+	}
+	halfL := p.Length() / 2
+	for i := 0; i < halfL; i++ {
+		p[i+halfL] ^= p[i]
+	}
 	return nil
 }
 

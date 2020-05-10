@@ -80,6 +80,20 @@ func TestFFT(t *testing.T) {
 	}
 }
 
+func TestLazyFFT(t *testing.T) {
+	m := uint(16)
+	b := configureDefaultBasis64(defaultBasisGenerator, m)
+	f0 := randGF64Poly(b.n)
+	f1 := f0.Clone()
+	_ = b.lFFT(f1)
+	_ = b.lIFFT(f1)
+	if !f0.EqualInCoeff(f1) {
+		f0.debug("f0")
+		f1.debug("f1")
+		t.Fatalf("polynomial multiplication fails")
+	}
+}
+
 func TestPolyMultiplication(t *testing.T) {
 	m := uint(4)
 	b := configureDefaultBasis64(defaultBasisGenerator, m)
@@ -113,5 +127,25 @@ func BenchmarkFFT(t *testing.B) {
 	t.ResetTimer()
 	for i := 0; i < t.N; i++ {
 		_ = b.FFT(f0)
+	}
+}
+
+func BenchmarkLazyFFTParallel(t *testing.B) {
+	m := uint(16)
+	b := configureDefaultBasis64(defaultBasisGenerator, m)
+	f0 := randGF64Poly(b.n)
+	t.ResetTimer()
+	for i := 0; i < t.N; i++ {
+		_ = b.clFFT(f0)
+	}
+}
+
+func BenchmarkLazyFFT(t *testing.B) {
+	m := uint(16)
+	b := configureDefaultBasis64(defaultBasisGenerator, m)
+	f0 := randGF64Poly(b.n)
+	t.ResetTimer()
+	for i := 0; i < t.N; i++ {
+		_ = b.lFFT(f0)
 	}
 }
