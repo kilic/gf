@@ -12,7 +12,7 @@ func (p GF64Poly) debug(desc string) {
 	}
 }
 
-func TestBasisConversion(t *testing.T) {
+func TestBasisConversion64(t *testing.T) {
 	// Extension degree is 64
 	n := 64
 	// Find cantor bases where βm = 1.
@@ -20,8 +20,7 @@ func TestBasisConversion(t *testing.T) {
 	bases := make([]GF64, n)
 	bases[0] = a
 	for j := 0; j < n-1; j++ {
-		a = a.Square().Add(a)
-		bases[j+1] = a
+		bases[j+1] = mul64(bases[j], bases[j]) ^ bases[j]
 	}
 	if !bases[n-1].IsOne() {
 		// never expected though
@@ -35,7 +34,7 @@ func TestBasisConversion(t *testing.T) {
 	m := n - 1
 	twisted := make([]GF64, m)
 	for j := 0; j < m; j++ {
-		twisted[j] = bases[j].Square().Add(bases[j])
+		twisted[j] = mul64(bases[j], bases[j]) ^ bases[j]
 	}
 	if !twisted[m-1].IsOne() {
 		// never expected though
@@ -48,9 +47,9 @@ func TestBasisConversion(t *testing.T) {
 	}
 }
 
-func TestRadixConversation(t *testing.T) {
+func TestRadixConversation64(t *testing.T) {
 	m := uint(16)
-	b := configureDefaultBasis64(defaultBasisGenerator, m)
+	b := configureDefaultBasis64(m)
 	coeffs0 := make([]GF64, b.n)
 	for i := 0; i < int(b.n); i++ {
 		coeffs0[i] = GF64(1 << uint(i))
@@ -66,37 +65,45 @@ func TestRadixConversation(t *testing.T) {
 	}
 }
 
-func TestFFT(t *testing.T) {
+func TestFFT64(t *testing.T) {
 	m := uint(8)
-	b := configureDefaultBasis64(defaultBasisGenerator, m)
+	b := configureDefaultBasis64(m)
 	f0 := randGF64Poly(b.n)
 	f1 := f0.Clone()
 	b.fftNaive(f0)
 	_ = b.FFT(f1)
-	for i := 0; i < int(b.n); i++ {
-		if !f0[i].Equal(f1[i]) {
-			t.Fatalf("%d %#16.16x, %#16.16x\n", f0[i], f1[i], i)
-		}
+	if !f0.EqualInCoeff(f1) {
+		t.Fatalf("fft fails")
 	}
 }
 
-func TestLazyFFT(t *testing.T) {
-	m := uint(16)
-	b := configureDefaultBasis64(defaultBasisGenerator, m)
+func TestLazyFFT64(t *testing.T) {
+	m := uint(8)
+	b := configureDefaultBasis64(m)
 	f0 := randGF64Poly(b.n)
 	f1 := f0.Clone()
 	_ = b.lFFT(f1)
 	_ = b.lIFFT(f1)
 	if !f0.EqualInCoeff(f1) {
-		f0.debug("f0")
-		f1.debug("f1")
-		t.Fatalf("polynomial multiplication fails")
+		t.Fatalf("lazy fft fails")
 	}
 }
 
-func TestPolyMultiplication(t *testing.T) {
+func TestConcurrentFFT64(t *testing.T) {
+	m := uint(8)
+	b := configureDefaultBasis64(m)
+	f0 := randGF64Poly(b.n)
+	f1 := f0.Clone()
+	_ = b.clFFT(f1)
+	_ = b.clIFFT(f1)
+	if !f0.EqualInCoeff(f1) {
+		t.Fatalf("lazy fft fails")
+	}
+}
+
+func TestPolyMultiplication64(t *testing.T) {
 	m := uint(4)
-	b := configureDefaultBasis64(defaultBasisGenerator, m)
+	b := configureDefaultBasis64(m)
 	f0 := randGF64Poly(b.n/2 - 1)
 	f1 := randGF64Poly(b.n/2 - 1)
 	r0 := f0.mulNaive(f1)
@@ -104,15 +111,13 @@ func TestPolyMultiplication(t *testing.T) {
 	b.Expand(&f1)
 	_ = b.Mul(f0, f1)
 	if !r0.EqualInCoeff(f0) {
-		r0.debug("r0")
-		f0.debug("f0")
 		t.Fatalf("polynomial multiplication fails")
 	}
 }
 
-func BenchmarkRadix(t *testing.B) {
+func BenchmarkRadix64(t *testing.B) {
 	m := uint(16)
-	b := configureDefaultBasis64(defaultBasisGenerator, m)
+	b := configureDefaultBasis64(m)
 	f0 := randGF64Poly(b.n)
 	t.ResetTimer()
 	for i := 0; i < t.N; i++ {
@@ -120,9 +125,9 @@ func BenchmarkRadix(t *testing.B) {
 	}
 }
 
-func BenchmarkFFT(t *testing.B) {
+func BenchmarkFFT64(t *testing.B) {
 	m := uint(16)
-	b := configureDefaultBasis64(defaultBasisGenerator, m)
+	b := configureDefaultBasis64(m)
 	f0 := randGF64Poly(b.n)
 	t.ResetTimer()
 	for i := 0; i < t.N; i++ {
@@ -130,9 +135,9 @@ func BenchmarkFFT(t *testing.B) {
 	}
 }
 
-func BenchmarkLazyFFTParallel(t *testing.B) {
+func BenchmarkLazyFFTParallel64(t *testing.B) {
 	m := uint(16)
-	b := configureDefaultBasis64(defaultBasisGenerator, m)
+	b := configureDefaultBasis64(m)
 	f0 := randGF64Poly(b.n)
 	t.ResetTimer()
 	for i := 0; i < t.N; i++ {
@@ -140,9 +145,9 @@ func BenchmarkLazyFFTParallel(t *testing.B) {
 	}
 }
 
-func BenchmarkLazyFFT(t *testing.B) {
+func BenchmarkLazyFFT64(t *testing.B) {
 	m := uint(16)
-	b := configureDefaultBasis64(defaultBasisGenerator, m)
+	b := configureDefaultBasis64(m)
 	f0 := randGF64Poly(b.n)
 	t.ResetTimer()
 	for i := 0; i < t.N; i++ {
