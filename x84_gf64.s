@@ -5,7 +5,7 @@ GLOBL P<>(SB), RODATA|NOPTR, $8
 
 
 TEXT ·mul64(SB), NOSPLIT, $0-24
-  // move inputs to xmm registerss
+  // move inputs to xmm registers
   MOVQ a+0(FP), X0
   MOVQ b+8(FP), X1
   // cH, cL = a * b
@@ -20,9 +20,89 @@ TEXT ·mul64(SB), NOSPLIT, $0-24
   PXOR X0, X3
   // r = (cL + dL) + eL
   PXOR X3, X2
-  // move result to first operand
+  // return result
   MOVQ X2, ret+16(FP)
   RET
+
+
+TEXT ·mulassign64(SB), NOSPLIT, $0-16
+  MOVQ a+0(FP), SI
+  MOVQ (SI), X0
+  MOVQ b+8(FP), X1
+  PCLMULQDQ $0x00, X1, X0
+  MOVQ P<>+0(SB), X2
+  VPCLMULQDQ $0x10, X0, X2, X3
+  PCLMULQDQ $0x10, X3, X2
+  PXOR X0, X3
+  PXOR X3, X2
+  MOVQ X2, (SI)
+  RET
+
+TEXT ·square64(SB), NOSPLIT, $0-8
+  MOVQ a+0(FP), X0
+  PCLMULQDQ $0x00, X0, X0
+  MOVQ P<>+0(SB), X1
+  VPCLMULQDQ $0x10, X0, X1, X2
+  PCLMULQDQ $0x10, X2, X1
+  PXOR X0, X2
+  PXOR X2, X1
+  MOVQ X1, ret+8(FP)
+  RET
+
+TEXT ·squareassign64(SB), NOSPLIT, $0-0
+  MOVQ a+0(FP), SI
+  MOVQ (SI), X0
+  PCLMULQDQ $0x00, X0, X0
+  MOVQ P<>+0(SB), X1
+  VPCLMULQDQ $0x10, X0, X1, X2
+  PCLMULQDQ $0x10, X2, X1
+  PXOR X0, X2
+  PXOR X2, X1
+  MOVQ X1, (SI)
+  RET
+
+
+TEXT ·butterfly(SB), NOSPLIT, $0-24
+  MOVQ k2+8(FP), SI
+  MOVQ (SI), X0
+  MOVQ G+16(FP), X1
+  PCLMULQDQ $0x00, X1, X0
+  MOVQ P<>+0(SB), X2
+  VPCLMULQDQ $0x10, X0, X2, X3
+  PCLMULQDQ $0x10, X3, X2
+  PXOR X0, X3
+  PXOR X3, X2
+
+  MOVQ X2, R8
+  MOVQ k+0(FP), DX
+  XORQ (DX), R8
+  MOVQ R8, (DX)
+  XORQ (SI), R8
+  MOVQ R8, (SI)
+  RET
+
+
+TEXT ·ibutterfly(SB), NOSPLIT, $0-24
+  MOVQ k2+8(FP), BX
+  MOVQ k+0(FP), CX
+  MOVQ (BX), R8 
+  XORQ (CX), R8
+  MOVQ R8, (BX)
+
+  MOVQ R8, X0
+  MOVQ G+16(FP), X1
+  PCLMULQDQ $0x00, X1, X0
+  MOVQ P<>+0(SB), X2
+  VPCLMULQDQ $0x10, X0, X2, X3
+  PCLMULQDQ $0x10, X3, X2
+  PXOR X0, X3
+  PXOR X3, X2
+
+  MOVQ X2, R8
+  XORQ (CX), R8
+  MOVQ R8, (CX)
+  RET
+
 
 
 DATA LAMIRE<>+0(SB)/1, $0
