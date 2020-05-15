@@ -24,25 +24,25 @@ var gf16MOD GF16 = 0x100b
 var gf16Generator = GF16(3)
 
 // log and antilog table of GF16
-var logTable16, antiLogTable16 = func() (map[GF16]uint32, map[uint32]GF16) {
-	antiLogTable := make(map[uint32]GF16)
-	logTable := make(map[GF16]uint32)
+var logTable16, antiLogTable16 = func() ([65536]GF16, [65536 * 2]GF16) {
+	logTable2 := [65536]GF16{}
+	antiLogTable2 := [65536 * 2]GF16{}
 	acc := GF16(1)
-	for i := uint32(0); i < 0xffff; i++ {
+	for i := 0; i < 0xffff; i++ {
 		g := acc
-		logTable[g] = i
-		antiLogTable[i] = g
-		antiLogTable[i+0xffff] = g
+		logTable2[int(g)] = GF16(i)
+		antiLogTable2[i] = g
+		antiLogTable2[i+0xffff] = g
 		acc = acc.mulNaive(gf16Generator)
 	}
-	return logTable, antiLogTable
+	return logTable2, antiLogTable2
 }()
 
 func mul16(a, b GF16) GF16 {
 	if a == 0 || b == 0 {
 		return 0
 	}
-	return antiLogTable16[logTable16[a]+logTable16[b]]
+	return antiLogTable16[int32(logTable16[a])+int32(logTable16[b])]
 }
 
 func double16(a GF16) GF16 {
@@ -59,7 +59,7 @@ func square16(a GF16) GF16 {
 	if a == 0 {
 		return 0
 	}
-	return antiLogTable16[logTable16[a]<<1]
+	return antiLogTable16[int(logTable16[a])<<1]
 }
 
 // randGF16 generates a new random GF(16) element.
