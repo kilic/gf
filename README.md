@@ -9,7 +9,7 @@
 go test -v
 
 # run benchmarks
-go test -run ^$ -bench=.
+go test -run ^$ -bench=. -pl $POLY_SIZE
 ```
 
 ## References
