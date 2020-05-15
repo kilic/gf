@@ -116,7 +116,7 @@ func TestPolyMultiplication64(t *testing.T) {
 }
 
 func BenchmarkRadix64(t *testing.B) {
-	m := uint(16)
+	m := polyLen
 	b := configureDefaultBasis64(m)
 	f0 := randGF64Poly(b.n)
 	t.ResetTimer()
@@ -126,7 +126,7 @@ func BenchmarkRadix64(t *testing.B) {
 }
 
 func BenchmarkFFT64(t *testing.B) {
-	m := uint(16)
+	m := polyLen
 	b := configureDefaultBasis64(m)
 	f0 := randGF64Poly(b.n)
 	t.ResetTimer()
@@ -136,7 +136,7 @@ func BenchmarkFFT64(t *testing.B) {
 }
 
 func BenchmarkLazyFFTParallel64(t *testing.B) {
-	m := uint(16)
+	m := polyLen
 	b := configureDefaultBasis64(m)
 	f0 := randGF64Poly(b.n)
 	t.ResetTimer()
@@ -146,7 +146,7 @@ func BenchmarkLazyFFTParallel64(t *testing.B) {
 }
 
 func BenchmarkLazyFFT64(t *testing.B) {
-	m := uint(16)
+	m := polyLen
 	b := configureDefaultBasis64(m)
 	f0 := randGF64Poly(b.n)
 	t.ResetTimer()
