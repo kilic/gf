@@ -38,7 +38,7 @@ TEXT ·mulassign64(SB), NOSPLIT, $0-16
   MOVQ X2, (SI)
   RET
 
-TEXT ·square64(SB), NOSPLIT, $0-8
+TEXT ·square64(SB), NOSPLIT, $0-16
   MOVQ a+0(FP), X0
   PCLMULQDQ $0x00, X0, X0
   MOVQ P<>+0(SB), X1
