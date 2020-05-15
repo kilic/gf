@@ -47,9 +47,12 @@ func (e *GF64e) One() *GF64e {
 	return &GF64e{1, 0, 0, 0}
 }
 
-// Equal tests if given two element is equal.
 func (e *GF64e) IsZero() bool {
 	return e[0]|e[1]|e[2]|e[3] == 0
+}
+
+func (e *GF64e) IsOne() bool {
+	return e[1]|e[2]|e[3] == 0 && e[0] == 1
 }
 
 // Equal tests if given two element is equal.
@@ -57,14 +60,50 @@ func (e *GF64e) Equal(e2 *GF64e) bool {
 	return e[0] == e2[0] && e[1] == e2[1] && e[2] == e2[2] && e[3] == e2[3]
 }
 
-func (e *GF64e) Mul(e2 *GF64e) {
+func (e *GF64e) MulAssign(e2 *GF64e) {
 	var c = [7]GF16{}
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 4; j++ {
-			c[i+j] ^= mul16(e[i], e2[j])
-		}
-	}
+	c[0] = mul16(e[0], e2[0])
+	c[1] = mul16(e[1], e2[0])
+	c[2] = mul16(e[2], e2[0])
+	c[3] = mul16(e[3], e2[0])
+	c[1] ^= mul16(e[0], e2[1])
+	c[2] ^= mul16(e[1], e2[1])
+	c[3] ^= mul16(e[2], e2[1])
+	c[4] ^= mul16(e[3], e2[1])
+	c[2] ^= mul16(e[0], e2[2])
+	c[3] ^= mul16(e[1], e2[2])
+	c[4] ^= mul16(e[2], e2[2])
+	c[5] ^= mul16(e[3], e2[2])
+	c[3] ^= mul16(e[0], e2[3])
+	c[4] ^= mul16(e[1], e2[3])
+	c[5] ^= mul16(e[2], e2[3])
+	c[6] ^= mul16(e[3], e2[3])
+	// reduce with P = x^4 + x^2 + 2x + 1
+	c[4] ^= c[6]
+	e[3] = c[3] ^ double16(c[6]) ^ c[5]
+	e[2] = c[2] ^ c[6] ^ double16(c[5]) ^ c[4]
+	e[0] = c[0] ^ c[4]
+	e[1] = c[1] ^ c[5] ^ double16(c[4])
+}
 
+func (e *GF64e) Mul(a, b *GF64e) {
+	var c = [7]GF16{}
+	c[0] = mul16(a[0], b[0])
+	c[1] = mul16(a[1], b[0])
+	c[2] = mul16(a[2], b[0])
+	c[3] = mul16(a[3], b[0])
+	c[1] ^= mul16(a[0], b[1])
+	c[2] ^= mul16(a[1], b[1])
+	c[3] ^= mul16(a[2], b[1])
+	c[4] ^= mul16(a[3], b[1])
+	c[2] ^= mul16(a[0], b[2])
+	c[3] ^= mul16(a[1], b[2])
+	c[4] ^= mul16(a[2], b[2])
+	c[5] ^= mul16(a[3], b[2])
+	c[3] ^= mul16(a[0], b[3])
+	c[4] ^= mul16(a[1], b[3])
+	c[5] ^= mul16(a[2], b[3])
+	c[6] ^= mul16(a[3], b[3])
 	// reduce with P = x^4 + x^2 + 2x + 1
 	c[4] ^= c[6]
 	e[3] = c[3] ^ double16(c[6]) ^ c[5]
