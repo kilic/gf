@@ -100,3 +100,43 @@ func TestPolyMultiplication16(t *testing.T) {
 		t.Fatalf("polynomial multiplication fails")
 	}
 }
+
+func BenchmarkRadix16(t *testing.B) {
+	m := polyLen
+	b := configureDefaultBasis16(m)
+	f0 := randGF16Poly(b.n)
+	t.ResetTimer()
+	for i := 0; i < t.N; i++ {
+		_ = b.radixConversion(f0)
+	}
+}
+
+func BenchmarkFFT16(t *testing.B) {
+	m := polyLen
+	b := configureDefaultBasis16(m)
+	f0 := randGF16Poly(b.n)
+	t.ResetTimer()
+	for i := 0; i < t.N; i++ {
+		_ = b.FFT(f0)
+	}
+}
+
+func BenchmarkLazyFFTParallel16(t *testing.B) {
+	m := polyLen
+	b := configureDefaultBasis16(m)
+	f0 := randGF16Poly(b.n)
+	t.ResetTimer()
+	for i := 0; i < t.N; i++ {
+		_ = b.clFFT(f0)
+	}
+}
+
+func BenchmarkLazyFFT16(t *testing.B) {
+	m := polyLen
+	b := configureDefaultBasis16(m)
+	f0 := randGF16Poly(b.n)
+	t.ResetTimer()
+	for i := 0; i < t.N; i++ {
+		_ = b.lFFT(f0)
+	}
+}

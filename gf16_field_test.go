@@ -42,3 +42,11 @@ func TestGF16MultiplicationProperties(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkGF16Mul(t *testing.B) {
+	r0, r1 := randGF16(), randGF16()
+	t.ResetTimer()
+	for i := 0; i < t.N; i++ {
+		r0 = mul16(r0, r1)
+	}
+}
