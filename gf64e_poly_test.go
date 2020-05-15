@@ -17,7 +17,7 @@ func TestFFT64e(t *testing.T) {
 }
 
 func BenchmarkFFT64e(t *testing.B) {
-	m := uint(16)
+	m := polyLen
 	b := configureDefaultBasis64e(m)
 	f0 := randGF64ePoly(b.n)
 	t.ResetTimer()
