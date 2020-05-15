@@ -45,6 +45,16 @@ func mul16(a, b GF16) GF16 {
 	return antiLogTable16[logTable16[a]+logTable16[b]]
 }
 
+func double16(a GF16) GF16 {
+	if a&(0x8000) != 0 { // must be reduced
+		a <<= 1
+		a ^= gf16MOD
+	} else {
+		a <<= 1
+	}
+	return a
+}
+
 func square16(a GF16) GF16 {
 	if a == 0 {
 		return 0
