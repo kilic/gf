@@ -121,7 +121,7 @@ func BenchmarkFFT16(t *testing.B) {
 	}
 }
 
-func BenchmarkLazyFFTParallel16(t *testing.B) {
+func BenchmarkLazyParallelFFT16(t *testing.B) {
 	m := polyLen
 	b := configureDefaultBasis16(m)
 	f0 := randGF16Poly(b.n)

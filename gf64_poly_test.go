@@ -135,7 +135,7 @@ func BenchmarkFFT64(t *testing.B) {
 	}
 }
 
-func BenchmarkLazyFFTParallel64(t *testing.B) {
+func BenchmarkLazyParallelFFT64(t *testing.B) {
 	m := polyLen
 	b := configureDefaultBasis64(m)
 	f0 := randGF64Poly(b.n)
