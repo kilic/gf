@@ -58,6 +58,10 @@ func TestGF64MultiplicationProperties(t *testing.T) {
 
 func TestGF64Inverse(t *testing.T) {
 	one := GF64(1)
+	ione := one.Inverse()
+	if !ione.Equal(one) {
+		t.Fatalf("1 ^ -1 == 1")
+	}
 	for i := 0; i < 1000; i++ {
 		a := randGF64()
 		ai := a.Inverse()
@@ -65,10 +69,14 @@ func TestGF64Inverse(t *testing.T) {
 		if !b.Equal(one) {
 			t.Fatalf("a * a ^ -1 == 1")
 		}
-		ione := one.Inverse()
-		if !ione.Equal(one) {
-			t.Fatalf("1 ^ -1 == 1")
-		}
+	}
+}
+
+func BenchmarkGF64Inverse(t *testing.B) {
+	r0 := randGF64()
+	t.ResetTimer()
+	for i := 0; i < t.N; i++ {
+		r0.Inverse()
 	}
 }
 

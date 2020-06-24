@@ -2,6 +2,7 @@ package gf
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 )
 
@@ -19,9 +20,9 @@ func NewGF64PolyZero(len int) GF64Poly {
 }
 
 // randGF64Poly returns polynomial with random coefficients at given size
-func randGF64Poly(n uint) GF64Poly {
+func randGF64Poly(n int) GF64Poly {
 	coeffs := make([]GF64, n)
-	for i := n - n; i < n; i++ {
+	for i := 0; i < n; i++ {
 		coeffs[i] = randGF64()
 	}
 	return NewGF64Poly(coeffs)
@@ -76,8 +77,8 @@ func (p GF64Poly) EqualInCoeff(q GF64Poly) bool {
 	return true
 }
 
-// Expand pads rigth zeros if given lenght is larger than this.
-func (p *GF64Poly) Expand(l int) int {
+// expand pads rigth zeros if given lenght is larger than this.
+func (p *GF64Poly) expand(l int) int {
 	l2 := p.Length()
 	if l > l2 {
 		*p = append(*p, make([]GF64, l-l2)...)
@@ -88,19 +89,23 @@ func (p *GF64Poly) Expand(l int) int {
 
 // Eval evaluates polynomial for a given domain
 // and returns a polynomial in sample form.
-func (p GF64Poly) Eval(D []GF64) GF64Poly {
+func (p GF64Poly) Eval(n int, D []GF64) GF64Poly {
 	evals := make(GF64Poly, len(p))
 	for i := 0; i < len(D); i++ {
-		evals[i] = p.EvalSingle(D[i])
+		evals[i] = p.EvalSingle(n, D[i])
 	}
 	return evals
 }
 
 // EvalSingle evaluates polynomial for single point.
-func (p GF64Poly) EvalSingle(x GF64) GF64 {
+// func (p GF64Poly) EvalSingle(x GF64) GF64 {
+func (p GF64Poly) EvalSingle(n int, x GF64) GF64 {
+	if n < p.Length() {
+		n = p.Length()
+	}
 	acc := NewGF64()
 	// Apply Horner formula
-	for i := p.Length() - 1; i >= 0; i-- {
+	for i := n - 1; i >= 0; i-- {
 		// acc = acc.Mul(x).Add(p[i])
 		acc = mul64(acc, x) ^ p[i]
 	}
@@ -120,31 +125,33 @@ func (p GF64Poly) Add(q GF64Poly) {
 	}
 }
 
-// mulNaive is straight forward polynomial multiplication.
+// mul implements straight forward polynomial multiplication.
 // We keep this function to cross test faster FFT multiplication function.
-func (p GF64Poly) mulNaive(q GF64Poly) GF64Poly {
+func (p GF64Poly) mul(q GF64Poly) GF64Poly {
 	R := make(GF64Poly, p.Degree()+q.Degree()+1)
 	for i := 0; i < p.Length(); i++ {
 		for j := 0; j < q.Length(); j++ {
-			// r := p[i].Mul(q[j])
 			R[i+j] ^= mul64(p[i], q[j])
 		}
 	}
 	return R
 }
 
-// mulSample multiplicates two polynomial sample-wise.
-// It expects that given polynomials are in evaluated form
-// and evaluations are in same order. Result is assigned to
-// fisrt operand
-func (p GF64Poly) mulSample(q GF64Poly) error {
-	if p.Length() != q.Length() {
+func (p GF64Poly) mulSample(n int, q GF64Poly) error {
+	if n < p.Length() || n < q.Length() {
 		return errors.New("sample-wise mul is not applicable")
 	}
-	for i := 0; i < p.Length(); i++ {
+	for i := 0; i < n; i++ {
 		mulassign64(&p[i], q[i])
 	}
 	return nil
+}
+
+func (p GF64Poly) debug(desc string) {
+	fmt.Println(desc, len(p))
+	for i := 0; i < len(p); i++ {
+		fmt.Printf("%#16.16x\n", p[i])
+	}
 }
 
 // One may use a global basis by inializing it with configureDefaultBasis64
@@ -156,15 +163,14 @@ const defaultBasisGenerator64 = GF64(0xce41e2bee6cbe964)
 
 // Basis64 is the suite for FFT and IFFT functions
 type Basis64 struct {
-	n               uint
-	m               uint
-	bases           []GF64
+	n               int
+	m               int
 	combinations    []GF64
 	subCombinations []GF64
 }
 
 // configureDefaultBasis64 use this to set globals
-func configureDefaultBasis64(n uint) *Basis64 {
+func configureDefaultBasis64(n int) *Basis64 {
 	b, err := NewBasis64(defaultBasisGenerator64, n)
 	if err != nil {
 		panic(err)
@@ -177,7 +183,7 @@ func configureDefaultBasis64(n uint) *Basis64 {
 // calculates all linear combinations of the basis at desired
 // span size. Last element of basis expected to equal to one otherwise,
 // an error is returned.
-func NewBasis64(b0 GF64, m uint) (*Basis64, error) {
+func NewBasis64(b0 GF64, m int) (*Basis64, error) {
 	N := 64
 	bases := make([]GF64, N)
 	// Generates cantor bases for GF(64)
@@ -191,11 +197,11 @@ func NewBasis64(b0 GF64, m uint) (*Basis64, error) {
 	}
 	// Slice full range bases down to what is need
 	bases = bases[64-m:]
-	l := uint(len(bases))
+	l := len(bases)
 	combinations := make([]GF64, 1<<l)
 	subCombinations := make([]GF64, 1<<(l-1))
 	// Calcucate combinations
-	for i := uint(0); i < l; i++ {
+	for i := 0; i < l; i++ {
 		a := (1 << i)
 		for j := 0; j < a; j++ {
 			combinations[a+j] = combinations[j] ^ bases[l-1-i]
@@ -208,7 +214,6 @@ func NewBasis64(b0 GF64, m uint) (*Basis64, error) {
 	return &Basis64{
 			n:               1 << m,
 			m:               m,
-			bases:           bases,
 			combinations:    combinations,
 			subCombinations: subCombinations,
 		},
@@ -217,17 +222,16 @@ func NewBasis64(b0 GF64, m uint) (*Basis64, error) {
 
 // fftNaive calculates evaluates polynomial at combinations of this bases.
 // We keep this method here to cross test faster FFT function.
-func (basis Basis64) fftNaive(p0 GF64Poly) {
-	p1 := p0.Eval(basis.combinations)
+func (basis Basis64) fftNaive(m int, p0 GF64Poly) {
+	p1 := p0.Eval(1<<m, basis.combinations)
 	copy(p0[:], p1[:])
 }
 
-// FFT calculates evaluates polynomial at combinations of this bases.
-func (basis Basis64) FFT(p GF64Poly) error {
-	if uint(p.Length()) != basis.n {
+func (basis *Basis64) fft(m int, p GF64Poly) error {
+	if uint(p.Length()) > 1<<m {
 		return errors.New("fft is not applicable")
 	}
-	_ = basis.radixConversion(p)
+	_ = basis.radixConversion(m, p)
 
 	// We will use subsets of basis combinations
 	// throughout the iterations.
@@ -241,19 +245,22 @@ func (basis Basis64) FFT(p GF64Poly) error {
 	// f(0), f(β_1) where f is linear polynomial and β_1 = β_m = 1.
 	// f(0) = a_0 + 0 * a_1 = a_0
 	// f(β_1) = a_0 + a_1 * β_1 = a_0 + a_1
-	halfL := p.Length() / 2
+	halfL := 1 << (m - 1)
 	for i := 0; i < halfL; i++ {
 		p[i+halfL] ^= p[i]
 	}
 
 	// Merging linear evaluations with base combinations
 	// Step 6 in GM10 Algorithm 2.
-	for i := uint(1); i < basis.m; i++ {
-		d := uint(1) << (basis.m - 1 - i)
-		var b uint
-		for j := uint(0); j < 1<<i; j++ {
+	for i := 1; i < m; i++ {
+		d := 1 << (m - 1 - i)
+		var b int
+		for j := 0; j < 1<<i; j++ {
 			for k := b; k < b+d; k++ {
-				butterfly(&p[k], &p[k+d], G[j])
+				// butterfly(&p[k], &p[k+d], G[j])
+				k2 := k + d
+				p[k] ^= mul64(G[j], p[k2])
+				p[k2] ^= p[k]
 			}
 			b += (d << 1)
 		}
@@ -263,7 +270,7 @@ func (basis Basis64) FFT(p GF64Poly) error {
 
 // lFFT stands for lazy FFT, lFFt skips radix conversion phase
 func (basis *Basis64) lFFT(p GF64Poly) error {
-	if uint(p.Length()) != basis.n {
+	if p.Length() != basis.n {
 		return errors.New("fft is not applicable")
 	}
 	G := basis.subCombinations
@@ -271,10 +278,10 @@ func (basis *Basis64) lFFT(p GF64Poly) error {
 	for i := 0; i < halfL; i++ {
 		p[i+halfL] ^= p[i]
 	}
-	for i := uint(1); i < basis.m; i++ {
-		d := uint(1) << (basis.m - 1 - i)
-		var b uint
-		for j := uint(0); j < 1<<i; j++ {
+	for i := 1; i < basis.m; i++ {
+		d := 1 << (basis.m - 1 - i)
+		var b int
+		for j := 0; j < 1<<i; j++ {
 			for k := b; k < b+d; k++ {
 				butterfly(&p[k], &p[k+d], G[j])
 			}
@@ -286,12 +293,12 @@ func (basis *Basis64) lFFT(p GF64Poly) error {
 
 // clFFT stands for concurrent lazy FFT, clFFt skips radix conversion phase
 // and implements simple concurrent processing
-func (basis Basis64) clFFT(p GF64Poly) error {
-	if uint(p.Length()) != basis.n {
+func (basis *Basis64) clFFT(p GF64Poly) error {
+	if p.Length() != basis.n {
 		return errors.New("fft is not applicable")
 	}
 	G := basis.subCombinations
-	runHalfJ := func(p GF64Poly, j0, j1, d, b uint, wg *sync.WaitGroup) {
+	runHalfJ := func(p GF64Poly, j0, j1, d, b int, wg *sync.WaitGroup) {
 		for j := j0; j < j1; j++ {
 			for k := b; k < b+d; k++ {
 				butterfly(&p[k], &p[k+d], G[j])
@@ -305,9 +312,9 @@ func (basis Basis64) clFFT(p GF64Poly) error {
 		p[i+halfL] ^= p[i]
 	}
 	var wg sync.WaitGroup
-	for i := uint(1); i < basis.m; i++ {
-		d := uint(1) << (basis.m - 1 - i)
-		j := uint(1) << i
+	for i := 1; i < basis.m; i++ {
+		d := 1 << (basis.m - 1 - i)
+		j := 1 << i
 		j2 := j / 2
 		wg.Add(2)
 		go runHalfJ(p, 0, j2, d, 0, &wg)
@@ -317,17 +324,39 @@ func (basis Basis64) clFFT(p GF64Poly) error {
 	return nil
 }
 
-// IFFT interpolates evaluations
-// computing the FFT in reverse order
-func (basis Basis64) IFFT(p GF64Poly) error {
-	if uint(p.Length()) != basis.n {
+func (basis *Basis64) ifft(m int, p GF64Poly) error {
+	if p.Length() > 1<<m {
+		return errors.New("fft is not applicable")
+	}
+	G := basis.subCombinations
+	var i, j, k, d int
+	for i = m - 1; i > 0; i-- {
+		d = 1 << (m - 1 - i)
+		var b int
+		for j = 0; j < 1<<i; j++ {
+			for k = b; k < b+d; k++ {
+				ibutterfly(&p[k], &p[k+d], G[j])
+			}
+			b += (d << 1)
+		}
+	}
+	halfL := 1 << (m - 1)
+	for i := 0; i < halfL; i++ {
+		p[i+halfL] ^= p[i]
+	}
+	_ = basis.iRadixConversion(m, p)
+	return nil
+}
+
+func (basis *Basis64) lIFFT(p GF64Poly) error {
+	if p.Length() != basis.n {
 		return errors.New("ifft is not applicable")
 	}
 	G := basis.subCombinations
-	var i, j, k, d uint
+	var i, j, k, d int
 	for i = basis.m - 1; i > 0; i-- {
 		d = 1 << (basis.m - 1 - i)
-		var b uint
+		var b int
 		for j = 0; j < 1<<i; j++ {
 			for k = b; k < b+d; k++ {
 				ibutterfly(&p[k], &p[k+d], G[j])
@@ -339,39 +368,15 @@ func (basis Basis64) IFFT(p GF64Poly) error {
 	for i := 0; i < halfL; i++ {
 		p[i+halfL] ^= p[i]
 	}
-	_ = basis.iRadixConversion(p)
 	return nil
 }
 
-func (basis Basis64) lIFFT(p GF64Poly) error {
-	if uint(p.Length()) != basis.n {
+func (basis *Basis64) clIFFT(p GF64Poly) error {
+	if p.Length() != basis.n {
 		return errors.New("ifft is not applicable")
 	}
 	G := basis.subCombinations
-	var i, j, k, d uint
-	for i = basis.m - 1; i > 0; i-- {
-		d = 1 << (basis.m - 1 - i)
-		var b uint
-		for j = 0; j < 1<<i; j++ {
-			for k = b; k < b+d; k++ {
-				ibutterfly(&p[k], &p[k+d], G[j])
-			}
-			b += (d << 1)
-		}
-	}
-	halfL := p.Length() / 2
-	for i := 0; i < halfL; i++ {
-		p[i+halfL] ^= p[i]
-	}
-	return nil
-}
-
-func (basis Basis64) clIFFT(p GF64Poly) error {
-	if uint(p.Length()) != basis.n {
-		return errors.New("ifft is not applicable")
-	}
-	G := basis.subCombinations
-	runHalfJ := func(p GF64Poly, j0, j1, d, b uint, wg *sync.WaitGroup) {
+	runHalfJ := func(p GF64Poly, j0, j1, d, b int, wg *sync.WaitGroup) {
 		for j := j0; j < j1; j++ {
 			for k := b; k < b+d; k++ {
 				ibutterfly(&p[k], &p[k+d], G[j])
@@ -382,8 +387,8 @@ func (basis Basis64) clIFFT(p GF64Poly) error {
 	}
 	var wg sync.WaitGroup
 	for i := basis.m - 1; i > 0; i-- {
-		d := uint(1) << (basis.m - 1 - i)
-		j := uint(1) << i
+		d := 1 << (basis.m - 1 - i)
+		j := 1 << i
 		j2 := j / 2
 		wg.Add(2)
 		go runHalfJ(p, 0, j2, d, 0, &wg)
@@ -401,16 +406,17 @@ func (basis Basis64) clIFFT(p GF64Poly) error {
 // calculates Taylor expansion of the polinomial at (x^2 + x)
 // This method assumes that input polynomial has 2^n coefficients
 // Result is assigned to coefficients of the input polynomial
-func (basis Basis64) radixConversion(p GF64Poly) error {
-	if uint(p.Length()) != basis.n {
+func (basis *Basis64) radixConversion(m int, p GF64Poly) error {
+	n := 1 << m
+	if p.Length() < n {
 		return errors.New("radix convertions is not applicable")
 	}
-	for r := uint(0); r < basis.m-1; r++ {
-		for i := uint(0); i < basis.m-r-1; i++ {
-			d := basis.n >> i
+	for r := 0; r < m-1; r++ {
+		for i := 0; i < m-r-1; i++ {
+			d := n >> i
 			d2, d4 := d>>1, d>>2
-			var off uint
-			for j := uint(0); j < 1<<i; j++ {
+			var off int
+			for j := 0; j < 1<<i; j++ {
 				for k := off; k < off+d4; k++ {
 					p[d2+k] ^= p[d2+d4+k]
 					p[d4+k] ^= p[d2+k]
@@ -425,16 +431,17 @@ func (basis Basis64) radixConversion(p GF64Poly) error {
 // iRadixConversion given polynomial in Taylor expanded form
 // calculates coefficients. It is basically calculating Taylor expantion at (x^2 + x)
 // in reverse order.
-func (basis Basis64) iRadixConversion(p GF64Poly) error {
-	if uint(p.Length()) != basis.n {
+func (basis Basis64) iRadixConversion(m int, p GF64Poly) error {
+	n := 1 << m
+	if p.Length() < n {
 		return errors.New("radix convertions is not applicable")
 	}
-	for r := basis.m - 2; r != 0xffffffffffffffff; r-- {
-		for i := basis.m - r - 2; i != 0xffffffffffffffff; i-- {
-			d := basis.n >> i
+	for r := m - 2; r >= 0; r-- {
+		for i := m - r - 2; i >= 0; i-- {
+			d := n >> i
 			d2, d4 := d>>1, d>>2
-			var off uint
-			for j := uint(0); j < 1<<i; j++ {
+			var off int
+			for j := 0; j < 1<<i; j++ {
 				for k := off; k < off+d4; k++ {
 					p[d4+k] ^= p[d2+k]
 					p[d2+k] ^= p[d2+d4+k]
@@ -446,18 +453,54 @@ func (basis Basis64) iRadixConversion(p GF64Poly) error {
 	return nil
 }
 
-// Mul multiplicatates two polynomial and assigns the result to first operand.
-func (basis Basis64) Mul(p0, p1 GF64Poly) error {
-	if (uint(p0.Length()) != basis.n) || (uint(p0.Length()) != basis.n) {
+func (basis *Basis64) mul(m int, p0, p1 *GF64Poly) error {
+	n := 1 << m
+	if p0.Length() < n || p1.Length() < n {
 		return errors.New("multiplication is not applicable")
 	}
-	_ = basis.FFT(p0)
-	_ = basis.FFT(p1)
-	_ = p0.mulSample(p1)
-	_ = basis.IFFT(p0)
+	// if n < 4 {
+	// 	p0.mul(p1)
+	// 	return nil
+	// }
+	// apply expand here
+
+	fmt.Printf("%p\n", &p0)
+	p0.expand(1 << (m + 1))
+	p1.expand(1 << (m + 1))
+	fmt.Printf("%p\n", &p0)
+
+	// fmt.Println(len(p0))
+	// fmt.Println(len(p1))
+	// if err := basis.fft(m+1, p0); err != nil {
+	// 	return err
+	// }
+	// if err := basis.fft(m+1, p1); err != nil {
+	// 	return err
+	// }
+	// if err := p0.mulSample(1<<(m+1), p1); err != nil {
+	// 	return err
+	// }
+	// if err := basis.ifft(m+1, p0); err != nil {
+	// 	return err
+	// }
+
 	return nil
 }
 
-func (basis Basis64) Expand(p *GF64Poly) {
-	p.Expand(int(basis.n))
+func (basis *Basis64) z(roots []GF64) (GF64Poly, error) {
+	l := len(roots)
+	p := make([]GF64Poly, l)
+	if len(roots)&1 != 0 {
+		return nil, errors.New("expect even number of roots for simplicity")
+	}
+	for i := 0; i < l; i++ {
+		p[i] = NewGF64Poly([]GF64{roots[i], GF64(1)})
+	}
+	for i := 0; i < l>>2; i++ {
+		fmt.Println("xxx", i)
+		p[i].mul(p[i+1])
+
+	}
+
+	return nil, nil
 }

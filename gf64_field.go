@@ -3,6 +3,7 @@ package gf
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 )
 
 // GF64 is field element of GF(64).
@@ -34,6 +35,10 @@ func randGF64() GF64 {
 	return e
 }
 
+func (e GF64) hex() string {
+	return fmt.Sprintf("%#16.16x", e)
+}
+
 // Zero returns new field element equals to Zero
 func (e GF64) Zero() GF64 {
 	return GF64(0)
@@ -46,12 +51,12 @@ func (e GF64) One() GF64 {
 
 // IsZero returns true if GF(64) element is equal to zero
 func (e GF64) IsZero() bool {
-	return e.Equal(GF64(0))
+	return e == 0
 }
 
 // IsZero returns true if GF(64) element is equal to zero
 func (e GF64) IsOne() bool {
-	return e.Equal(GF64(1))
+	return e == 1
 }
 
 // Equal tests if given two element is equal.

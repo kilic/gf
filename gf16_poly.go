@@ -19,7 +19,7 @@ func NewGF16PolyZero(len int) GF16Poly {
 }
 
 // randGF16Poly returns polynomial with random coefficients at given size
-func randGF16Poly(n uint) GF16Poly {
+func randGF16Poly(n int) GF16Poly {
 	coeffs := make([]GF16, n)
 	for i := n - n; i < n; i++ {
 		coeffs[i] = randGF16()
@@ -154,15 +154,15 @@ const defaultBasisGenerator16 = GF16(0x2000)
 
 // Basis16 is a suite for FFT and IFFT functions
 type Basis16 struct {
-	n               uint
-	m               uint
+	n               int
+	m               int
 	bases           []GF16
 	combinations    []GF16
 	subCombinations []GF16
 }
 
 // configureDefaultBasis16 use this to set globals
-func configureDefaultBasis16(n uint) *Basis16 {
+func configureDefaultBasis16(n int) *Basis16 {
 	b, err := NewBasis16(defaultBasisGenerator16, n)
 	if err != nil {
 		panic(err)
@@ -175,7 +175,7 @@ func configureDefaultBasis16(n uint) *Basis16 {
 // calculates all linear combinations of the basis at desired
 // span size. Last element of basis expected to equal to one otherwise,
 // an error is returned.
-func NewBasis16(b0 GF16, m uint) (*Basis16, error) {
+func NewBasis16(b0 GF16, m int) (*Basis16, error) {
 	N := 16
 	bases := make([]GF16, N)
 	// Generates cantor bases for GF(16)
@@ -190,11 +190,11 @@ func NewBasis16(b0 GF16, m uint) (*Basis16, error) {
 	}
 	// Slice full range bases down to what is need
 	bases = bases[16-m:]
-	l := uint(len(bases))
+	l := len(bases)
 	combinations := make([]GF16, 1<<l)
 	subCombinations := make([]GF16, 1<<(l-1))
 	// Calcucate combinations
-	for i := uint(0); i < l; i++ {
+	for i := 0; i < l; i++ {
 		a := (1 << i)
 		for j := 0; j < a; j++ {
 			combinations[a+j] = combinations[j] ^ bases[l-1-i]
@@ -223,7 +223,7 @@ func (basis Basis16) fftNaive(p0 GF16Poly) {
 
 // FFT calculates evaluates polynomial at combinations of this bases.
 func (basis Basis16) FFT(p GF16Poly) error {
-	if uint(p.Length()) != basis.n {
+	if p.Length() != basis.n {
 		return errors.New("fft is not applicable")
 	}
 	_ = basis.radixConversion(p)
@@ -248,10 +248,10 @@ func (basis Basis16) FFT(p GF16Poly) error {
 	// Merging linear evaluations with base combinations
 	// Step 6 in GM10 Algorithm 2.
 	// var i, j, k uint
-	for i := uint(1); i < basis.m; i++ {
-		d := uint(1) << (basis.m - 1 - i)
-		var b uint
-		for j := uint(0); j < 1<<i; j++ {
+	for i := 1; i < basis.m; i++ {
+		d := 1 << (basis.m - 1 - i)
+		var b int
+		for j := 0; j < 1<<i; j++ {
 			for k := b; k < b+d; k++ {
 				k2 := k + d
 				p[k] ^= mul16(G[j], p[k2])
@@ -265,7 +265,7 @@ func (basis Basis16) FFT(p GF16Poly) error {
 
 // lFFT stands for lazy FFT, lFFt skips radix conversion phase
 func (basis *Basis16) lFFT(p GF16Poly) error {
-	if uint(p.Length()) != basis.n {
+	if p.Length() != basis.n {
 		return errors.New("fft is not applicable")
 	}
 
@@ -276,10 +276,10 @@ func (basis *Basis16) lFFT(p GF16Poly) error {
 		p[i+halfL] ^= p[i]
 	}
 
-	var i, j, k, d uint
+	var i, j, k, d int
 	for i = 1; i < basis.m; i++ {
 		d = 1 << (basis.m - 1 - i)
-		var b uint
+		var b int
 		for j = 0; j < 1<<i; j++ {
 			for k = b; k < b+d; k++ {
 				k2 := k + d
@@ -295,11 +295,11 @@ func (basis *Basis16) lFFT(p GF16Poly) error {
 // clFFT stands for concurrent lazy FFT, clFFt skips radix conversion phase
 // and implements simple concurrent processing
 func (basis Basis16) clFFT(p GF16Poly) error {
-	if uint(p.Length()) != basis.n {
+	if p.Length() != basis.n {
 		return errors.New("fft is not applicable")
 	}
 	G := basis.subCombinations
-	runHalfJ := func(p GF16Poly, j0, j1, d, b uint, wg *sync.WaitGroup) {
+	runHalfJ := func(p GF16Poly, j0, j1, d, b int, wg *sync.WaitGroup) {
 		for j := j0; j < j1; j++ {
 			for k := b; k < b+d; k++ {
 				k2 := k + d
@@ -315,9 +315,9 @@ func (basis Basis16) clFFT(p GF16Poly) error {
 		p[i+halfL] ^= p[i]
 	}
 	var wg sync.WaitGroup
-	for i := uint(1); i < basis.m; i++ {
-		d := uint(1) << (basis.m - 1 - i)
-		j := uint(1) << i
+	for i := 1; i < basis.m; i++ {
+		d := 1 << (basis.m - 1 - i)
+		j := 1 << i
 		j2 := j / 2
 		wg.Add(2)
 		go runHalfJ(p, 0, j2, d, 0, &wg)
@@ -330,14 +330,14 @@ func (basis Basis16) clFFT(p GF16Poly) error {
 // IFFT interpolates evaluations
 // computing the FFT in reverse order
 func (basis Basis16) IFFT(p GF16Poly) error {
-	if uint(p.Length()) != basis.n {
+	if p.Length() != basis.n {
 		return errors.New("ifft is not applicable")
 	}
 	G := basis.subCombinations
-	var i, j, k, d uint
+	var i, j, k, d int
 	for i = basis.m - 1; i > 0; i-- {
 		d = 1 << (basis.m - 1 - i)
-		var b uint
+		var b int
 		for j = 0; j < 1<<i; j++ {
 			for k = b; k < b+d; k++ {
 				k2 := k + d
@@ -356,14 +356,14 @@ func (basis Basis16) IFFT(p GF16Poly) error {
 }
 
 func (basis Basis16) lIFFT(p GF16Poly) error {
-	if uint(p.Length()) != basis.n {
+	if p.Length() != basis.n {
 		return errors.New("ifft is not applicable")
 	}
 	G := basis.subCombinations
-	var i, j, k, d uint
+	var i, j, k, d int
 	for i = basis.m - 1; i > 0; i-- {
 		d = 1 << (basis.m - 1 - i)
-		var b uint
+		var b int
 		for j = 0; j < 1<<i; j++ {
 			for k = b; k < b+d; k++ {
 				k2 := k + d
@@ -381,11 +381,11 @@ func (basis Basis16) lIFFT(p GF16Poly) error {
 }
 
 func (basis Basis16) clIFFT(p GF16Poly) error {
-	if uint(p.Length()) != basis.n {
+	if p.Length() != basis.n {
 		return errors.New("ifft is not applicable")
 	}
 	G := basis.subCombinations
-	runHalfJ := func(p GF16Poly, j0, j1, d, b uint, wg *sync.WaitGroup) {
+	runHalfJ := func(p GF16Poly, j0, j1, d, b int, wg *sync.WaitGroup) {
 		for j := j0; j < j1; j++ {
 			for k := b; k < b+d; k++ {
 				k2 := k + d
@@ -398,8 +398,8 @@ func (basis Basis16) clIFFT(p GF16Poly) error {
 	}
 	var wg sync.WaitGroup
 	for i := basis.m - 1; i > 0; i-- {
-		d := uint(1) << (basis.m - 1 - i)
-		j := uint(1) << i
+		d := 1 << (basis.m - 1 - i)
+		j := 1 << i
 		j2 := j / 2
 		wg.Add(2)
 		go runHalfJ(p, 0, j2, d, 0, &wg)
@@ -418,15 +418,15 @@ func (basis Basis16) clIFFT(p GF16Poly) error {
 // This method assumes that input polynomial has 2^n coefficients
 // Result is assigned to coefficients of the input polynomial
 func (basis Basis16) radixConversion(p GF16Poly) error {
-	if uint(p.Length()) != basis.n {
+	if p.Length() != basis.n {
 		return errors.New("radix convertions is not applicable")
 	}
-	for r := uint(0); r < basis.m-1; r++ {
-		for i := uint(0); i < basis.m-r-1; i++ {
+	for r := 0; r < basis.m-1; r++ {
+		for i := 0; i < basis.m-r-1; i++ {
 			d := basis.n >> i
 			d2, d4 := d>>1, d>>2
-			var off uint
-			for j := uint(0); j < 1<<i; j++ {
+			var off int
+			for j := 0; j < 1<<i; j++ {
 				for k := off; k < off+d4; k++ {
 					p[d2+k] ^= p[d2+d4+k]
 					p[d4+k] ^= p[d2+k]
@@ -442,15 +442,15 @@ func (basis Basis16) radixConversion(p GF16Poly) error {
 // calculates coefficients. It is basically calculating Taylor expantion at (x^2 + x)
 // in reverse order.
 func (basis Basis16) iRadixConversion(p GF16Poly) error {
-	if uint(p.Length()) != basis.n {
+	if p.Length() != basis.n {
 		return errors.New("radix convertions is not applicable")
 	}
-	for r := basis.m - 2; r != 0xffffffffffffffff; r-- {
-		for i := basis.m - r - 2; i != 0xffffffffffffffff; i-- {
+	for r := basis.m - 2; r >= 0; r-- {
+		for i := basis.m - r - 2; i >= 0; i-- {
 			d := basis.n >> i
 			d2, d4 := d>>1, d>>2
-			var off uint
-			for j := uint(0); j < 1<<i; j++ {
+			var off int
+			for j := 0; j < 1<<i; j++ {
 				for k := off; k < off+d4; k++ {
 					p[d4+k] ^= p[d2+k]
 					p[d2+k] ^= p[d2+d4+k]
@@ -464,7 +464,7 @@ func (basis Basis16) iRadixConversion(p GF16Poly) error {
 
 // Mul multiplicatates two polynomial and assigns the result to first operand.
 func (basis Basis16) Mul(p0, p1 GF16Poly) error {
-	if (uint(p0.Length()) != basis.n) || (uint(p0.Length()) != basis.n) {
+	if p0.Length() != basis.n || p0.Length() != basis.n {
 		return errors.New("multiplication is not applicable")
 	}
 	_ = basis.FFT(p0)
