@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-func encode(data *Poly, factor int) (*Poly, error) {
+func encode(data *poly, factor int) (*poly, error) {
 	encodedData := data.clone()
 	encodedData.expand(data.length() * factor)
 	if _, err := encodedData.fft(); err != nil {
@@ -14,7 +14,7 @@ func encode(data *Poly, factor int) (*Poly, error) {
 	return encodedData, nil
 }
 
-func recover(erasureData *Poly, missing []uint64) (*Poly, error) {
+func recover(erasureData *poly, missing []uint64) (*poly, error) {
 
 	m := erasureData.m()
 	n := 1 << m

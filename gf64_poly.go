@@ -70,19 +70,19 @@ func newBasis(b0 uint64, m int) (*basis, error) {
 
 // Poly is to represent a polynomial.
 // It supports coefficient and evaluation forms of representation.
-type Poly struct {
+type poly struct {
 	a []uint64
 }
 
-func newPoly(coeffs []uint64) *Poly {
-	return &Poly{coeffs}
+func newPoly(coeffs []uint64) *poly {
+	return &poly{coeffs}
 }
 
-func newEmptyPoly(len int) *Poly {
-	return &Poly{make([]uint64, len)}
+func newEmptyPoly(len int) *poly {
+	return &poly{make([]uint64, len)}
 }
 
-func randPoly(n int) *Poly {
+func randPoly(n int) *poly {
 	coeffs := make([]uint64, n)
 	for i := 0; i < n; i++ {
 		coeffs[i] = randGF64()
@@ -90,25 +90,25 @@ func randPoly(n int) *Poly {
 	return newPoly(coeffs)
 }
 
-func (p *Poly) degree() int {
+func (p *poly) degree() int {
 	return p.length() - 1
 }
 
-func (p *Poly) length() int {
+func (p *poly) length() int {
 	return len(p.a)
 }
 
-func (p *Poly) m() int {
+func (p *poly) m() int {
 	return log2Ceil(p.length())
 }
 
-func (p *Poly) clone() *Poly {
+func (p *poly) clone() *poly {
 	q := make([]uint64, p.length())
 	copy(q, p.a)
 	return newPoly(q)
 }
 
-func (p *Poly) equalInCoeff(q *Poly) bool {
+func (p *poly) equalInCoeff(q *poly) bool {
 	lp := p.length()
 	lq := q.length()
 	if lp > lq {
@@ -139,15 +139,15 @@ func (p *Poly) equalInCoeff(q *Poly) bool {
 	return true
 }
 
-func (p *Poly) eval(D []uint64) *Poly {
+func (p *poly) eval(D []uint64) *poly {
 	evals := make([]uint64, len(p.a))
 	for i := 0; i < len(D); i++ {
 		evals[i] = p.evalSingle(D[i])
 	}
-	return &Poly{evals}
+	return &poly{evals}
 }
 
-func (p *Poly) evalSingle(x uint64) uint64 {
+func (p *poly) evalSingle(x uint64) uint64 {
 	var acc uint64
 	for i := p.length() - 1; i >= 0; i-- {
 		acc = mul64(acc, x) ^ p.a[i]
@@ -155,7 +155,7 @@ func (p *Poly) evalSingle(x uint64) uint64 {
 	return acc
 }
 
-func (p *Poly) expand(l int) int {
+func (p *poly) expand(l int) int {
 	l2 := p.length()
 	if l > l2 {
 		p.a = append(p.a, make([]uint64, l-l2)...)
@@ -164,7 +164,7 @@ func (p *Poly) expand(l int) int {
 	return l2
 }
 
-func (p *Poly) trimZeros() {
+func (p *poly) trimZeros() {
 	l := 0
 	for i := p.length() - 1; i >= 0; i-- {
 		if p.a[i] == 0 {
@@ -176,7 +176,7 @@ func (p *Poly) trimZeros() {
 	p.a = p.a[:p.length()-l]
 }
 
-func (p *Poly) substitute(k uint64) *Poly {
+func (p *poly) substitute(k uint64) *poly {
 	n := p.length()
 	acc := k
 	for i := 1; i < n; i++ {
@@ -186,7 +186,7 @@ func (p *Poly) substitute(k uint64) *Poly {
 	return p
 }
 
-func (p *Poly) add(q *Poly) {
+func (p *poly) add(q *poly) {
 	l := len(p.a)
 	if l > len(q.a) {
 		l = len(q.a)
@@ -196,7 +196,7 @@ func (p *Poly) add(q *Poly) {
 	}
 }
 
-func (p *Poly) radixConversion() error {
+func (p *poly) radixConversion() error {
 	m := p.m()
 	n := p.length()
 	if n != 1<<m {
@@ -219,7 +219,7 @@ func (p *Poly) radixConversion() error {
 	return nil
 }
 
-func (p *Poly) iRadixConversion() error {
+func (p *poly) iRadixConversion() error {
 	m := p.m()
 	n := p.length()
 	if n != 1<<m {
@@ -243,11 +243,11 @@ func (p *Poly) iRadixConversion() error {
 }
 
 // fftNaive evaluates polynomial at combinations of default bases.
-func (p *Poly) fftNaive() {
+func (p *poly) fftNaive() {
 	copy(p.a[:], p.eval(defaultBasis.combinations).a[:])
 }
 
-func (p *Poly) fft() (*Poly, error) {
+func (p *poly) fft() (*poly, error) {
 	m := p.m()
 	n := p.length()
 	if n != 1<<m {
@@ -292,7 +292,7 @@ func (p *Poly) fft() (*Poly, error) {
 }
 
 // lfft stands for lazy fft, lfft skips radix conversion phase
-func (p *Poly) lfft() (*Poly, error) {
+func (p *poly) lfft() (*poly, error) {
 	m := p.m()
 	n := p.length()
 	if n != 1<<m {
@@ -316,7 +316,7 @@ func (p *Poly) lfft() (*Poly, error) {
 	return p, nil
 }
 
-func (p *Poly) ifft() (*Poly, error) {
+func (p *poly) ifft() (*poly, error) {
 	m := p.m()
 	n := p.length()
 	if n != 1<<m {
@@ -342,7 +342,7 @@ func (p *Poly) ifft() (*Poly, error) {
 	return p, nil
 }
 
-func (p *Poly) lifft() (*Poly, error) {
+func (p *poly) lifft() (*poly, error) {
 	m := p.m()
 	n := p.length()
 	if n != 1<<m {
@@ -367,7 +367,7 @@ func (p *Poly) lifft() (*Poly, error) {
 	return p, nil
 }
 
-func (p *Poly) mulN(q *Poly) {
+func (p *poly) mulN(q *poly) {
 	r := p.degree() + q.degree() + 1
 	R := make([]uint64, r)
 	for i := 0; i < p.length(); i++ {
@@ -381,14 +381,14 @@ func (p *Poly) mulN(q *Poly) {
 	}
 }
 
-func (p *Poly) muls2(q *Poly) {
+func (p *poly) muls2(q *poly) {
 	p.expand(3)
 	p.a[2] = mul64(p.a[1], q.a[1])
 	p.a[1] = mul64(p.a[1], q.a[0]) ^ mul64(p.a[0], q.a[1])
 	p.a[0] = mul64(p.a[0], q.a[0])
 }
 
-func (p *Poly) muls3(q *Poly) {
+func (p *poly) muls3(q *poly) {
 	p.expand(5)
 	p.a[4] = mul64(p.a[2], q.a[2])
 	p.a[3] = mul64(p.a[1], q.a[2]) ^ mul64(p.a[2], q.a[1])
@@ -397,7 +397,7 @@ func (p *Poly) muls3(q *Poly) {
 	p.a[0] = mul64(p.a[0], q.a[0])
 }
 
-func (p *Poly) muls4(q *Poly) {
+func (p *poly) muls4(q *poly) {
 	p.expand(7)
 	p.a[6] = mul64(p.a[3], q.a[3])
 	p.a[5] = mul64(p.a[3], q.a[2]) ^ mul64(p.a[2], q.a[3])
@@ -408,7 +408,7 @@ func (p *Poly) muls4(q *Poly) {
 	p.a[0] = mul64(p.a[0], q.a[0])
 }
 
-func (p *Poly) mulSample(q *Poly) (*Poly, error) {
+func (p *poly) mulSample(q *poly) (*poly, error) {
 	// TODO expand?
 	n := p.length()
 	if n != q.length() {
@@ -420,7 +420,7 @@ func (p *Poly) mulSample(q *Poly) (*Poly, error) {
 	return p, nil
 }
 
-func (p *Poly) mul(q *Poly) (*Poly, error) {
+func (p *poly) mul(q *poly) (*poly, error) {
 	q1 := q.clone()
 	n := p.length()
 	if n == 1 {
@@ -452,7 +452,7 @@ func (p *Poly) mul(q *Poly) (*Poly, error) {
 	return p, nil
 }
 
-func (p *Poly) invSample() (*Poly, error) {
+func (p *poly) invSample() (*poly, error) {
 	n := p.length()
 	tA := []uint64{}
 	j, setFirst := 0, false
@@ -501,7 +501,7 @@ func (p *Poly) invSample() (*Poly, error) {
 }
 
 // only expect perfect division
-func (p *Poly) div(q *Poly) (*Poly, error) {
+func (p *poly) div(q *poly) (*poly, error) {
 	m := p.m()
 	n := 1 << m
 	q1 := q.clone()
@@ -526,26 +526,26 @@ func (p *Poly) div(q *Poly) (*Poly, error) {
 	return p, nil
 }
 
-func (p *Poly) debug(desc string) {
+func (p *poly) debug(desc string) {
 	fmt.Println(desc, len(p.a))
 	for i := 0; i < len(p.a); i++ {
 		fmt.Println(toHex(p.a[i]))
 	}
 }
 
-func z(roots []uint64) (*Poly, error) {
+func z(roots []uint64) (*poly, error) {
 	l := len(roots)
 	m := log2Ceil(l)
 	n := 1 << m
-	p := make([]Poly, n)
+	p := make([]poly, n)
 	for i := 0; i < l; i++ {
-		p[i] = Poly{[]uint64{roots[i], uint64(1)}}
+		p[i] = poly{[]uint64{roots[i], uint64(1)}}
 	}
 	// fill with 1 * x ^ 0 + 0 * x ^ 1
 	// this is obviously suboptimal
 	// but let's leave it for a while in sake of simplicity
 	for i := l; i < n; i++ {
-		p[i] = Poly{[]uint64{1, 0}}
+		p[i] = poly{[]uint64{1, 0}}
 	}
 	for i := 0; i < m; i++ {
 		z := 1 << (m - i - 1)
