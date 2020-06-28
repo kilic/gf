@@ -6,67 +6,41 @@ import (
 	"fmt"
 )
 
-// GF64 is field element of GF(64).
-type GF64 uint64
-
 // GF(64) under the irreducible polynomial R
 // R = x^64 + x^4 + x^3 + x + 1
 // R = x^64 + r
 // gf64MOD is the lower part of the irreducible polynomial
 // r = x^4 + x^3 + x + 1
-var gf64MOD GF64 = 0x1b
-
-// NewGF64 returns a new GF(64) element which is zero.
-func NewGF64() GF64 {
-	return GF64(0)
-}
+var gf64MOD uint64 = 0x1b
 
 // randGF64 generates a new random GF(64) element.
-func randGF64() GF64 {
+func randGF64() uint64 {
 	buf := make([]byte, 8)
-	var e GF64
-	for e.IsZero() {
+	var e uint64
+	for e == 0 {
 		_, err := rand.Read(buf)
 		if err != nil {
 			panic(err)
 		}
-		e = GF64(binary.BigEndian.Uint64(buf))
+		e = binary.BigEndian.Uint64(buf)
 	}
 	return e
 }
 
-func (e GF64) hex() string {
+func toHex(e uint64) string {
 	return fmt.Sprintf("%#16.16x", e)
 }
 
-// Zero returns new field element equals to Zero
-func (e GF64) Zero() GF64 {
-	return GF64(0)
+func zero() uint64 {
+	return 0
 }
 
-// One returns new field element equals to One
-func (e GF64) One() GF64 {
-	return GF64(1)
+func one() uint64 {
+	return 1
 }
 
-// IsZero returns true if GF(64) element is equal to zero
-func (e GF64) IsZero() bool {
-	return e == 0
-}
-
-// IsZero returns true if GF(64) element is equal to zero
-func (e GF64) IsOne() bool {
-	return e == 1
-}
-
-// Equal tests if given two element is equal.
-func (e0 GF64) Equal(e1 GF64) bool {
-	return e0 == e1
-}
-
-// Inverse inverses a GF(64) element.
-func (e0 GF64) Inverse() GF64 {
-	if e0.IsZero() {
+func inverse(e0 uint64) uint64 {
+	if e0 == 0 {
 		return e0
 	}
 	// Chain is generated with tool below.
@@ -105,9 +79,25 @@ func (e0 GF64) Inverse() GF64 {
 	return t0
 }
 
+func exp(a uint64, e uint64) uint64 {
+	if e == 0 {
+		return 1
+	}
+	l := log2Ceil(int(e))
+	var acc = a
+	var r uint64 = 1
+	for i := 0; i < l+1; i++ {
+		if (e>>i)&1 == 1 {
+			mulassign64(&r, acc)
+		}
+		squareassign64(&acc)
+	}
+	return r
+}
+
 // mulNaive multiplies two GF(16) element with shift and add method
-func (e0 GF64) mulNaive(e1 GF64) GF64 {
-	var result GF64 = 0
+func mulNaive(e0, e1 uint64) uint64 {
+	var result uint64 = 0
 	var shifted = e0
 	var i uint64
 	for i = 0; i < 64; i++ {

@@ -1,268 +1,314 @@
 package gf
 
-// import (
-// 	"fmt"
-// 	"testing"
-// )
+import (
+	"testing"
+)
 
-// func TestBasisConversion64(t *testing.T) {
-// 	// Extension degree is 64
-// 	n := 64
-// 	// Find cantor bases where βm = 1.
-// 	bases := make([]GF64, n)
-// 	bases[0] = defaultBasisGenerator64
-// 	for j := 0; j < n-1; j++ {
-// 		bases[j+1] = mul64(bases[j], bases[j]) ^ bases[j]
-// 	}
-// 	if !bases[n-1].IsOne() {
-// 		// never expected though
-// 		t.Fatalf("given initial β0 last basis expected to be 1")
-// 	}
-// 	// Twist initial set.
-// 	// γi = βi * βm ^ -1
-// 	// βm = 1
-// 	// γi = βi
-// 	// δi = γi ^ 2 − γi
-// 	m := n - 1
-// 	twisted := make([]GF64, m)
-// 	for j := 0; j < m; j++ {
-// 		twisted[j] = mul64(bases[j], bases[j]) ^ bases[j]
-// 	}
-// 	if !twisted[m-1].IsOne() {
-// 		// never expected though
-// 		t.Fatalf("last element of twisted basis expected to be 1")
-// 	}
-// 	for i := 0; i < m; i++ {
-// 		if !twisted[i].Equal(bases[i+1]) {
-// 			t.Fatal("bad twisting", i)
-// 		}
-// 	}
-// }
+func TestRadixConversation(t *testing.T) {
+	m := 8
+	n := 1 << m
+	initDefaultBasis(m)
+	coeffs0 := make([]uint64, n)
+	for i := 0; i < int(n); i++ {
+		coeffs0[i] = uint64(1 << i)
+	}
+	f0 := newPoly(coeffs0)
+	f1 := f0.clone()
+	if err := f0.radixConversion(); err != nil {
+		t.Fatal(err)
+	}
+	if err := f0.iRadixConversion(); err != nil {
+		t.Fatal(err)
+	}
+	if !f0.equalInCoeff(f1) {
+		t.Fatal("radix conversion failed")
+	}
+}
 
-// func TestRadixConversation64(t *testing.T) {
-// 	m := 16
-// 	b := configureDefaultBasis64(m)
-// 	coeffs0 := make([]GF64, b.n)
-// 	for i := 0; i < int(b.n); i++ {
-// 		coeffs0[i] = GF64(1 << i)
-// 	}
-// 	f0 := NewGF64Poly(coeffs0)
-// 	f1 := f0.Clone()
-// 	_ = b.radixConversion(m, f0)
-// 	_ = b.iRadixConversion(m, f0)
-// 	for i := 0; i < int(b.n); i++ {
-// 		if !f0[i].Equal(f1[i]) {
-// 			t.Errorf("")
-// 		}
-// 	}
-// }
+func TestFFT(t *testing.T) {
+	m := 8
+	n := 1 << m
+	initDefaultBasis(m)
+	f0 := randPoly(n)
+	f1 := f0.clone()
+	f0.fftNaive()
+	if _, err := f1.fft(); err != nil {
+		t.Fatal(err)
+	}
+	if !f0.equalInCoeff(f1) {
+		t.Fatalf("fft failed")
+	}
+	coeffs := make([]uint64, n)
+	a0 := uint64(0xff)
+	coeffs[0] = a0
+	f0 = newPoly(coeffs)
+	if _, err := f0.fft(); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 1<<8; i++ {
+		if f0.a[i] != a0 {
+			t.Fatalf("fft failed")
+		}
+	}
+}
 
-// func TestFFT64(t *testing.T) {
-// 	m := 8
-// 	b := configureDefaultBasis64(m)
-// 	f0 := randGF64Poly(b.n)
-// 	f1 := f0.Clone()
-// 	b.fftNaive(8, f0)
-// 	_ = b.fft(8, f1)
-// 	if !f0.EqualInCoeff(f1) {
-// 		t.Fatalf("fft fails")
-// 	}
-// }
+func TestMulN(t *testing.T) {
+	A := randPoly(4)
+	B := randPoly(4)
+	A.mulN(B)
+	if A.length() != 7 {
+		t.Fatal("bad naive mul result degree")
+	}
+	A0 := randPoly(2)
+	B0 := randPoly(2)
+	A1 := A0.clone()
+	B1 := B0.clone()
+	A0.mulN(B0)
+	A1.muls2(B1)
+	if A0.length() != A1.length() {
+		t.Fatal("bad degree, s2")
+	}
+	if !A0.equalInCoeff(A1) {
+		t.Fatal("bad mul result, s2")
+	}
+	A0 = randPoly(3)
+	B0 = randPoly(3)
+	A1 = A0.clone()
+	B1 = B0.clone()
+	A0.mulN(B0)
+	A1.muls3(B1)
+	if A0.length() != A1.length() {
+		t.Fatal("bad degree, s3")
+	}
+	if !A0.equalInCoeff(A1) {
+		t.Fatal("bad mul result, s3")
+	}
+	A0 = randPoly(4)
+	B0 = randPoly(4)
+	A1 = A0.clone()
+	B1 = B0.clone()
+	A0.mulN(B0)
+	A1.muls4(B1)
+	if A0.length() != A1.length() {
+		t.Fatal("bad degree, s4")
+	}
+	if !A0.equalInCoeff(A1) {
+		t.Fatal("bad mul result, s4")
+	}
+}
 
-// // func TestPolyMultiplication64(t *testing.T) {
-// // 	m := 8
-// // 	b := configureDefaultBasis64(m)
-// // 	f0 := randGF64Poly(b.n/2 - 1)
-// // 	f1 := randGF64Poly(b.n/2 - 1)
-// // 	r0 := f0.mul(f1)
-// // 	b.expand(&f0)
-// // 	b.expand(&f1)
-// // 	err := b.mul(m, f0, f1)
-// // 	if err != nil {
-// // 		t.Fatal(err)
-// // 	}
-// // 	if !r0.EqualInCoeff(f0) {
-// // 		t.Fatalf("polynomial multiplication fails")
-// // 	}
-// // }
+func TestPolyMultiplication(t *testing.T) {
+	initDefaultBasis(16)
+	A0 := randPoly(1 << 8)
+	B0 := randPoly(1 << 8)
+	A1 := A0.clone()
+	B1 := B0.clone()
+	if _, err := A0.mul(B0); err != nil {
+		t.Fatal(err)
+	}
+	A1.mulN(B1)
+	if !A1.equalInCoeff(A0) {
+		t.Error("polynomial multiplicaiton failed")
+	}
+	A0 = randPoly(1 << 15)
+	B0 = randPoly(1 << 15)
+	C0 := A0.clone()
+	if _, err := C0.mul(B0.clone()); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 100; i++ {
+		k := randGF64()
+		// a0 := A0.evalSingle(1<<15, k)
+		a0 := A0.evalSingle(k)
+		// b0 := B0.evalSingle(1<<15, k)
+		b0 := B0.evalSingle(k)
+		// c0 := C0.evalSingle(1<<16, k)
+		c0 := C0.evalSingle(k)
+		c1 := mul64(a0, b0)
+		if c0 != c1 {
+			t.Error("polynomial multiplication failed")
+		}
+	}
+}
 
-// func TestPolyMulX(t *testing.T) {
-// 	m := 8
-// 	b := configureDefaultBasis64(m)
-// 	f0 := randGF64Poly(8)
-// 	f1 := randGF64Poly(8)
-// 	// r0 := f0.mul(f1)
+func TestPolySubstitution(t *testing.T) {
+	initDefaultBasis(16)
+	m := 8
+	A0 := randPoly(1 << m)
+	A1 := A0.clone()
+	k := randGF64()
+	A1.substitute(k)
+	i := randGF64()
+	ik := mul64(i, k)
+	// e0 := A0.evalSingle(1<<m, ik)
+	e0 := A0.evalSingle(ik)
+	// e1 := A1.evalSingle(1<<m, i)
+	e1 := A1.evalSingle(i)
+	if e0 != e1 {
+		t.Fatal("kx transformation failed")
+	}
+}
 
-// 	f0.debug("f0")
-// 	fmt.Printf("%p\n", &f0)
-// 	err := b.mul(3, &f0, &f1)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	f0.debug("f0")
-// 	fmt.Printf("%p\n", &f0)
-// 	// r0.debug("r0")
+func TestPolyDiv(t *testing.T) {
+	initDefaultBasis(16)
+	for i := 0; i < 100; i++ {
+		m := 3
+		n := 1 << m
+		roots := make([]uint64, n)
+		for i := 0; i < n; i++ {
+			roots[i] = randGF64()
+		}
+		a0, _ := z(roots)
+		a1 := a0.clone()
+		b, _ := z(roots[:n/2])
+		q, _ := z(roots[n/2:])
+		if _, err := a1.div(b); err != nil {
+			t.Fatal(err)
+		}
+		if !a1.equalInCoeff(q) {
+			t.Fatal(i)
+		}
+	}
+	for i := 0; i < 100; i++ {
+		a0 := randPoly(1 << 8)
+		b0 := randPoly(1 << 8)
+		a1 := a0.clone()
+		b1 := b0.clone()
+		a1.mul(b0)
+		a1.div(b1)
+		a1.trimZeros()
+		if a1.length() != a0.length() {
+			t.Fatal("division for quotient failed")
+		}
+		if !a1.equalInCoeff(a0) {
+			t.Fatal("division for quotient failed")
+		}
+	}
+}
 
-// 	// if !r0.EqualInCoeff(f0) {
-// 	// 	t.Fatalf("polynomial multiplication fails")
-// 	// }
-// }
+func TestPolySampleInv(t *testing.T) {
+	initDefaultBasis(16)
+	A0 := newPoly([]uint64{10, 11, 12, 13})
+	A1 := A0.clone()
+	if _, err := A1.invSample(); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < A0.length(); i++ {
+		c := mul64(A0.a[i], A1.a[i])
+		if c != 1 {
+			t.Fatal("multi inversion failed", i)
+		}
+	}
+	A0 = newPoly([]uint64{0, 0, 10, 11, 12, 13, 0, 0})
+	A1 = A0.clone()
+	if _, err := A1.invSample(); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < A0.length(); i++ {
+		if A0.a[i] == 0 {
+			if A1.a[i] != 0 {
+				t.Fatal("multi inversion failed", i)
+			}
+			continue
+		}
+		c := mul64(A0.a[i], A1.a[i])
+		if c != 1 {
+			t.Fatal("multi inversion failed", i)
+		}
+	}
+	A0 = newPoly([]uint64{21, 20, 10, 0, 0, 13, 30, 31})
+	A1 = A0.clone()
+	if _, err := A1.invSample(); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < A0.length(); i++ {
+		if A0.a[i] == 0 {
+			if A1.a[i] != 0 {
+				t.Fatal("multi inversion failed", i)
+			}
+			continue
+		}
+		c := mul64(A0.a[i], A1.a[i])
+		if c != 1 {
+			t.Fatal("multi inversion failed", i)
+		}
+	}
+	A0 = randPoly(1 << 8)
+	A1 = A0.clone()
+	if _, err := A0.invSample(); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < A0.length(); i++ {
+		if A0.a[i] == 0 {
+			if A1.a[i] != 0 {
+				t.Fatal("multi inversion failed", i)
+			}
+			continue
+		}
+		c := mul64(A0.a[i], A1.a[i])
+		if c != 1 {
+			t.Fatal("multi inversion failed", i)
+		}
+	}
+	if _, err := A0.invSample(); err != nil {
+		t.Fatal(err)
+	}
+	if !A0.equalInCoeff(A1) {
+		t.Fatal("multi inversion failed")
+	}
+}
 
-// func BenchmarkFFT64(t *testing.B) {
-// 	m := polyLen
-// 	b := configureDefaultBasis64(m)
-// 	f0 := randGF64Poly(b.n)
-// 	t.ResetTimer()
-// 	for i := 0; i < t.N; i++ {
-// 		_ = b.fft(m, f0)
-// 	}
-// }
+func TestZPoly(t *testing.T) {
+	m := 16
+	initDefaultBasis(m)
+	roots := randPoly(1 << 4).a
+	Z, err := z(roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < len(roots); i++ {
+		// e := Z.evalSingle(len(roots)+1, roots[i])
+		e := Z.evalSingle(roots[i])
+		if e != 0 {
+			t.Fatalf("evaluation at root must be zero")
+		}
+	}
+}
 
-// // func TestSubBasis(t *testing.T) {
+func BenchmarkRadixConversion(t *testing.B) {
+	m := polyLen
+	n := 1 << m
+	initDefaultBasis(m)
+	f0 := randPoly(n)
+	t.ResetTimer()
+	for i := 0; i < t.N; i++ {
+		if err := f0.radixConversion(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
 
-// // }
+func BenchmarkFFT(t *testing.B) {
+	m := polyLen
+	n := 1 << m
+	initDefaultBasis(m)
+	f0 := randPoly(n)
+	t.ResetTimer()
+	for i := 0; i < t.N; i++ {
+		if _, err := f0.fft(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
 
-// // func TestZPoly(t *testing.T) {
-
-// // 	var err error
-// // 	// b1, _ := NewBasis64(defaultBasisGenerator64, 2)
-// // 	b3, _ := NewBasis64(defaultBasisGenerator64, 3)
-// // 	b4, _ := NewBasis64(defaultBasisGenerator64, 4)
-
-// // 	// p0 := NewGF64Poly([]GF64{GF64(1), GF64(1)})
-// // 	// p1 := NewGF64Poly([]GF64{GF64(2), GF64(1)})
-// // 	// p2 := NewGF64Poly([]GF64{GF64(3), GF64(1)})
-// // 	// p3 := NewGF64Poly([]GF64{GF64(4), GF64(1)})
-// // 	// p4 := NewGF64Poly([]GF64{GF64(5), GF64(1)})
-// // 	// p5 := NewGF64Poly([]GF64{GF64(6), GF64(1)})
-// // 	// p6 := NewGF64Poly([]GF64{GF64(7), GF64(1)})
-// // 	// p7 := NewGF64Poly([]GF64{GF64(8), GF64(1)})
-
-// // 	p0 := NewGF64Poly([]GF64{b4.combinations[1], GF64(1)})
-// // 	p1 := NewGF64Poly([]GF64{b4.combinations[2], GF64(1)})
-// // 	p2 := NewGF64Poly([]GF64{b4.combinations[3], GF64(1)})
-// // 	p3 := NewGF64Poly([]GF64{b4.combinations[4], GF64(1)})
-// // 	p4 := NewGF64Poly([]GF64{b4.combinations[5], GF64(1)})
-// // 	p5 := NewGF64Poly([]GF64{b4.combinations[6], GF64(1)})
-// // 	p6 := NewGF64Poly([]GF64{b4.combinations[7], GF64(1)})
-// // 	p7 := NewGF64Poly([]GF64{b4.combinations[8], GF64(1)})
-
-// // 	p0 = p0.mulNaive(p1)
-// // 	p1 = p2.mulNaive(p3)
-// // 	p2 = p4.mulNaive(p5)
-// // 	p3 = p6.mulNaive(p7)
-
-// // 	{
-// // 		r := p0.mulNaive(p1).mulNaive(p2).mulNaive(p3)
-// // 		r.debug("r")
-// // 	}
-
-// // 	p0.Expand(8)
-// // 	p1.Expand(8)
-// // 	p2.Expand(8)
-// // 	p3.Expand(8)
-
-// // 	err = b3.Mul(p0, p1)
-// // 	if err != nil {
-// // 		t.Fatal(err)
-// // 	}
-// // 	err = b3.Mul(p2, p3)
-// // 	if err != nil {
-// // 		t.Fatal(err)
-// // 	}
-// // 	p0.Expand(16)
-// // 	p2.Expand(16)
-// // 	err = b4.Mul(p0, p2)
-// // 	if err != nil {
-// // 		t.Fatal(err)
-// // 	}
-// // 	p0.debug("p0")
-// // }
-
-// // func TestSubspace(t *testing.T) {
-
-// // 	n := 64
-// // 	m := 4
-// // 	// Find cantor bases where βm = 1.
-// // 	cantor := make([]GF64, n)
-// // 	cantor[0] = defaultBasisGenerator64
-// // 	for j := 0; j < n-1; j++ {
-// // 		cantor[j+1] = mul64(cantor[j], cantor[j]) ^ cantor[j]
-// // 	}
-// // 	if !cantor[n-1].IsOne() {
-// // 		// never expected though
-// // 		t.Fatalf("given initial β0 last basis expected to be 1")
-// // 	}
-// // 	cantor = cantor[64-m:]
-// // 	l := uint(len(cantor))
-// // 	combinations := make([]GF64, 1<<l)
-// // 	// subCombinations := make([]GF64, 1<<(l-1))
-// // 	// Calcucate combinations
-// // 	for i := uint(0); i < l; i++ {
-// // 		a := (1 << i)
-// // 		for j := 0; j < a; j++ {
-// // 			combinations[a+j] = combinations[j] ^ cantor[l-1-i]
-// // 		}
-// // 	}
-
-// // 	// fmt.Println(len(combinations))
-// // 	for i := 0; i < len(combinations); i++ {
-// // 		fmt.Println(combinations[i])
-// // 	}
-// // 	fmt.Println(combinations[2] ^ combinations[7])
-// // 	fmt.Println(combinations[9])
-// // }
-
-// // func TestLazyFFT64(t *testing.T) {
-// // 	m := uint(16)
-// // 	b := configureDefaultBasis64(m)
-// // 	f0 := randGF64Poly(b.n)
-// // 	f1 := f0.Clone()
-// // 	_ = b.lFFT(f1)
-// // 	_ = b.lIFFT(f1)
-// // 	if !f0.EqualInCoeff(f1) {
-// // 		t.Fatalf("lazy fft fails")
-// // 	}
-// // }
-
-// // func TestConcurrentFFT64(t *testing.T) {
-// // 	m := uint(16)
-// // 	b := configureDefaultBasis64(m)
-// // 	f0 := randGF64Poly(b.n)
-// // 	f1 := f0.Clone()
-// // 	_ = b.clFFT(f1)
-// // 	_ = b.clIFFT(f1)
-// // 	if !f0.EqualInCoeff(f1) {
-// // 		t.Fatalf("lazy fft fails")
-// // 	}
-// // }
-
-// // func BenchmarkRadix64(t *testing.B) {
-// // 	m := polyLen
-// // 	b := configureDefaultBasis64(m)
-// // 	f0 := randGF64Poly(b.n)
-// // 	t.ResetTimer()
-// // 	for i := 0; i < t.N; i++ {
-// // 		_ = b.radixConversion(f0)
-// // 	}
-// // }
-
-// // func BenchmarkLazyParallelFFT64(t *testing.B) {
-// // 	m := polyLen
-// // 	b := configureDefaultBasis64(m)
-// // 	f0 := randGF64Poly(b.n)
-// // 	t.ResetTimer()
-// // 	for i := 0; i < t.N; i++ {
-// // 		_ = b.clFFT(f0)
-// // 	}
-// // }
-
-// // func BenchmarkLazyFFT64(t *testing.B) {
-// // 	m := polyLen
-// // 	b := configureDefaultBasis64(m)
-// // 	f0 := randGF64Poly(b.n)
-// // 	t.ResetTimer()
-// // 	for i := 0; i < t.N; i++ {
-// // 		_ = b.lFFT(f0)
-// // 	}
-// // }
+func BenchmarkZPoly(t *testing.B) {
+	m := polyLen
+	initDefaultBasis(m)
+	roots := randPoly(1 << (m - 1))
+	t.ResetTimer()
+	for i := 0; i < t.N; i++ {
+		if _, err := z(roots.a); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
