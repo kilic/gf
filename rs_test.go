@@ -7,11 +7,12 @@ import (
 func TestRS(t *testing.T) {
 
 	// Set the basis
-	m := 16
-	initDefaultBasis(m)
+	initDefaultBasis(16)
+
+	m := 14
 
 	// Generate some data
-	data := randPoly(1 << 14)
+	data := randPoly(1 << m)
 
 	// Encode the data
 	encodedData, err := encode(data, 2)
@@ -22,7 +23,13 @@ func TestRS(t *testing.T) {
 
 	// Make some missing points
 	erasureData := encodedData.clone()
-	missing := []uint64{2, 3}
+
+	missingDataSize := 1 << m
+	missing := make([]uint64, missingDataSize)
+	for i := 0; i < missingDataSize; i++ {
+		missing[i] = 2 + uint64(i)
+		erasureData.a[missing[i]] = 0
+	}
 	for _, i := range missing {
 		erasureData.a[i] = 0
 	}
@@ -32,8 +39,6 @@ func TestRS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// recoveredData.debug("recovered")
-	// data.debug("data")
 	if !recoveredData.equalInCoeff(data) {
 		t.Fatal("rs recovery failed")
 	}
@@ -60,7 +65,17 @@ func BenchmarkRSDecoding(t *testing.B) {
 		t.Fatal(err)
 	}
 	erasureData := encodedData.clone()
-	missing := []uint64{2, 3}
+	// bench with half of the data is missing
+	missingDataSize := 1 << (m - 2)
+	missing := make([]uint64, missingDataSize)
+	for i := 0; i < missingDataSize; i++ {
+		missing[i] = 2 + uint64(i)
+		erasureData.a[missing[i]] = 0
+	}
+	for _, i := range missing {
+		erasureData.a[i] = 0
+	}
+
 	for _, i := range missing {
 		erasureData.a[i] = 0
 	}
